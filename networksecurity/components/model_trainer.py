@@ -35,7 +35,18 @@ class ModelTrainer:
             self.data_transformation_artifact = data_transformation_artifact
         except Exception as e:
             raise NetworkSecurityException(e, sys)
-        
+    
+    def track_mlflow(self, best_model, classification_metric):
+        with mlflow.start_run():
+            f1_score=classification_metric.f1_score
+            precision_score=classification_metric.precision_score
+            recall_score=classification_metric.recall_score
+
+            mlflow.log_metric("f1_score", f1_score)
+            mlflow.log_metric("precision", precision_score)
+            mlflow.log_metric("recall_score", recall_score)
+
+            mlflow.sklearn.log_model(best_model, "model")
 
     def train_model(self, X_train, y_train, x_test, y_test):
 
@@ -87,10 +98,13 @@ class ModelTrainer:
 
         classification_train_metric = get_classification_score(y_true=y_train, y_pred=y_train_pred)
 
-        # track the mlflow: TODO
+        # track the experiments with mlflow 
+        self.track_mlflow(best_model, classification_train_metric)
 
         y_test_pred = best_model.predict(x_test)
         classification_test_metric = get_classification_score(y_true=y_test, y_pred=y_test_pred)
+
+        self.track_mlflow(best_model, classification_test_metric)
 
         preprocessor = load_object(file_path=self.data_transformation_artifact.transformed_object_file_path)
         model_dir_path = os.path.dirname(self.model_trainer_config.trained_model_file_path)
